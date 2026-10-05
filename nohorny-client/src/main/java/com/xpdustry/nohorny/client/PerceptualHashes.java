@@ -90,7 +90,7 @@ final class PerceptualHashes {
     }
 
     void remove(final VirtualBuilding.Group<? extends MindustryImage> group, final @Nullable MindustryAuthor author) {
-        AutoModerator.delete(group, false);
+        AutoModerator.delete(group);
         if (author != null && Boolean.TRUE.equals(NoHornySetting.PHASH_DOS_BLACKLIST.get())) {
             Vars.netServer.admins.blacklistDos(author.ip());
             for (final var player : Groups.player) {

@@ -47,7 +47,7 @@ final class AutoModerator implements LifecycleListener {
         switch (policy) {
             case BAN_NSFW -> {
                 if (event.response().rating().isWorseOrEqualThan(Rating.NSFW)) {
-                    delete(event.group(), true);
+                    delete(event.group());
                     if (event.author() != null) {
                         this.ban(
                                 event.author(), event.group().x(), event.group().y());
@@ -56,12 +56,12 @@ final class AutoModerator implements LifecycleListener {
             }
             case DELETE_WARN -> {
                 if (event.response().rating().isWorseOrEqualThan(Rating.WARN)) {
-                    delete(event.group(), true);
+                    delete(event.group());
                 }
             }
             case DELETE_NSFW -> {
                 if (event.response().rating().isWorseOrEqualThan(Rating.NSFW)) {
-                    delete(event.group(), true);
+                    delete(event.group());
                 }
             }
             case DISABLED -> {}
@@ -88,15 +88,13 @@ final class AutoModerator implements LifecycleListener {
         }
     }
 
-    static void delete(final VirtualBuilding.Group<? extends MindustryImage> group, final boolean logging) {
-        if (logging) {
-            log.info(
-                    "Building group within ({}, {}) and ({}, {}) is unsafe, deleting",
-                    group.x(),
-                    group.y(),
-                    group.x() + group.w(),
-                    group.y() + group.h());
-        }
+    static void delete(final VirtualBuilding.Group<? extends MindustryImage> group) {
+        log.info(
+                "Building group within ({}, {}) and ({}, {}) is unsafe, deleting",
+                group.x(),
+                group.y(),
+                group.x() + group.w(),
+                group.y() + group.h());
         final var refunds = new IntMap<ItemSeq>();
         final var positions = new IntSeq();
         var actualGroupSize = 0;
@@ -139,7 +137,7 @@ final class AutoModerator implements LifecycleListener {
         }
 
         Call.setTileBlocks(Blocks.air, Team.derelict, positions.toArray());
-        if (logging) log.info("Deleted {} buildings out of {}", positions.size, actualGroupSize);
+        log.info("Deleted {} buildings out of {}", positions.size, actualGroupSize);
 
         if (Vars.state.rules.infiniteResources) {
             return;
@@ -148,8 +146,7 @@ final class AutoModerator implements LifecycleListener {
             final var team = Team.get(entry.key);
             if (team.active() && !team.rules().infiniteResources) {
                 team.items().add(entry.value);
-                if (logging)
-                    log.info("Refunded team {} for deleted buildings: {}", team.name, JsonIO.write(entry.value));
+                log.info("Refunded team {} for deleted buildings: {}", team.name, JsonIO.write(entry.value));
             }
         }
     }

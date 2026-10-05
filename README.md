@@ -251,7 +251,8 @@ configuration folder and loaded on startup. It stores only hashes and comments.
 An unreadable or malformed blacklist prevents plugin initialization. Blacklist
 matches delete the buildings regardless of the automatic moderation policy, before
 image encoding or remote classification. They produce no Discord attachment or
-debug image file; the match log contains only the pHash, threshold and comment.
+debug image file. The pHash match log contains the hash, threshold and comment;
+normal console logs for building deletion and resource refunds remain enabled.
 The blacklist also works when `nohorny-api-endpoint` is `null`.
 
 Configure these options with Mindustry's `config` console command:
