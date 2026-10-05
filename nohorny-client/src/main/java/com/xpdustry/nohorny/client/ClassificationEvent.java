@@ -15,4 +15,13 @@ import org.jspecify.annotations.Nullable;
 public record ClassificationEvent(
         VirtualBuilding.Group<? extends MindustryImage> group,
         @Nullable MindustryAuthor author,
-        ClassificationResponse response) {}
+        ClassificationResponse response,
+        @Nullable String phash,
+        boolean cached) {
+    public ClassificationEvent(
+            final VirtualBuilding.Group<? extends MindustryImage> group,
+            final @Nullable MindustryAuthor author,
+            final ClassificationResponse response) {
+        this(group, author, response, null, false);
+    }
+}

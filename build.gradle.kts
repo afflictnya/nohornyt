@@ -168,6 +168,9 @@ project(":nohorny-client") {
 
     dependencies {
         "api"(project(":nohorny-common"))
+        "implementation"("dev.brachtendorf:JImageHash:1.0.0") {
+            exclude(group = "org.openjfx")
+        }
         "compileOnly"(toxopid.dependencies.mindustryCore)
         "testImplementation"(toxopid.dependencies.mindustryCore)
         "compileOnly"(toxopid.dependencies.arcCore)

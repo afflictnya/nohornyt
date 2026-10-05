@@ -61,6 +61,22 @@ interface SettingCodec<T> {
         }
     };
 
+    record OfInteger(int min, int max) implements SettingCodec<Integer> {
+        @Override
+        public String encode(final Integer value) {
+            return Integer.toString(this.decode(value.toString()));
+        }
+
+        @Override
+        public Integer decode(final String value) {
+            final int number = Integer.parseInt(value);
+            if (number < this.min || number > this.max) {
+                throw new IllegalArgumentException("Expected an integer between " + this.min + " and " + this.max);
+            }
+            return number;
+        }
+    }
+
     record OfEnum<E extends Enum<E>>(Class<E> type) implements SettingCodec<E> {
         @Override
         public String encode(final E value) {

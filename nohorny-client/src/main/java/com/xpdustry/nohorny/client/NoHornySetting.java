@@ -77,6 +77,31 @@ public interface NoHornySetting<T> {
             eg: "true", "false".
             """, false, Boolean.class, SettingCodec.OfBoolean);
 
+    NoHornySetting<Integer> PHASH_THRESHOLD = new AdminConfigNoHornySetting<>(
+            "phash-threshold",
+            "Minimum blacklist similarity in percent (0-100).",
+            90,
+            Integer.class,
+            new SettingCodec.OfInteger(0, 100));
+    NoHornySetting<Boolean> PHASH_DOS_BLACKLIST = new AdminConfigNoHornySetting<>(
+            "phash-dos-blacklist",
+            "Add authors of blacklist matches to the Mindustry DoS blacklist.",
+            false,
+            Boolean.class,
+            SettingCodec.OfBoolean);
+    NoHornySetting<Integer> PHASH_CACHE_THRESHOLD = new AdminConfigNoHornySetting<>(
+            "phash-cache-threshold",
+            "Minimum cached classification similarity in percent (0-100).",
+            98,
+            Integer.class,
+            new SettingCodec.OfInteger(0, 100));
+    NoHornySetting<Integer> PHASH_CACHE_TTL = new AdminConfigNoHornySetting<>(
+            "phash-cache-ttl",
+            "Classification cache TTL in seconds; 0 disables caching.",
+            3600,
+            Integer.class,
+            new SettingCodec.OfInteger(0, Integer.MAX_VALUE));
+
     List<NoHornySetting<?>> ALL = List.of(
             AUTO_MOD_POLICY,
             API_ENDPOINT,
@@ -85,7 +110,11 @@ public interface NoHornySetting<T> {
             DISCORD_WEBHOOK,
             DISCORD_WEBHOOK_NAME,
             DISCORD_WEBHOOK_PROXY,
-            DEBUG_TAP);
+            DEBUG_TAP,
+            PHASH_THRESHOLD,
+            PHASH_DOS_BLACKLIST,
+            PHASH_CACHE_THRESHOLD,
+            PHASH_CACHE_TTL);
 
     String name();
 

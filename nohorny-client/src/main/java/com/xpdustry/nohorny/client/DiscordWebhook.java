@@ -42,7 +42,10 @@ final class DiscordWebhook implements LifecycleListener {
     private final ReusableImageBytes imageBuffer = new ReusableImageBytes();
     private final NoHornyEventBus events;
 
-    public DiscordWebhook(final NoHornyEventBus events) {
+    private final PerceptualHashes phashes;
+
+    public DiscordWebhook(final NoHornyEventBus events, final PerceptualHashes phashes) {
+        this.phashes = phashes;
         this.events = events;
     }
 
@@ -96,6 +99,7 @@ final class DiscordWebhook implements LifecycleListener {
 
     private void onWebhookConfigure(final URI webhook, final String message) {
         try {
+            this.rateLimiter.waitIfRateLimited();
             this.send(webhook, this.createConfigurationSuccessFormPayload(message));
         } catch (final Exception e) {
             log.error("Failed to test the Discord webhook", e);
@@ -103,6 +107,7 @@ final class DiscordWebhook implements LifecycleListener {
     }
 
     private void onClassificationEvent(final ClassificationEvent event) {
+        if (event.cached()) return;
         if (!event.response().rating().isWorseOrEqualThan(Rating.WARN)) {
             return;
         }
@@ -113,7 +118,13 @@ final class DiscordWebhook implements LifecycleListener {
         this.executor.execute(() -> {
             this.imageBuffer.lock();
             try {
-                this.send(webhook, this.createClassificationFormPayload(event));
+                this.rateLimiter.waitIfRateLimited();
+                final var image = MindustryImageRenderer.render(event.group());
+                final var hash = this.phashes.hash(image);
+                synchronized (this.phashes) {
+                    if (this.phashes.reject(hash, event.group(), event.author())) return;
+                    this.send(webhook, this.createClassificationFormPayload(event, image, hash));
+                }
             } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (final IOException | URISyntaxException e) {
@@ -130,7 +141,6 @@ final class DiscordWebhook implements LifecycleListener {
 
     private void send(final URI webhook, final MultipartFormBodyPublisher form)
             throws IOException, InterruptedException, URISyntaxException {
-        this.rateLimiter.waitIfRateLimited();
         final var response = this.http.send(
                 HttpRequest.newBuilder(this.withWebhookQueryParameters(webhook))
                         .timeout(Duration.ofSeconds(15L))
@@ -167,23 +177,21 @@ final class DiscordWebhook implements LifecycleListener {
                 .build();
     }
 
-    private MultipartFormBodyPublisher createClassificationFormPayload(final ClassificationEvent event)
+    private MultipartFormBodyPublisher createClassificationFormPayload(
+            final ClassificationEvent event, final java.awt.image.BufferedImage image, final String hash)
             throws IOException {
         final var imageName = "SPOILER_nohorny_image_" + System.currentTimeMillis() + ".png";
         return new MultipartFormBodyPublisher.Builder()
                 .textPart(
                         "payload_json",
-                        this.createClassificationJsonPayload(event, "attachment://" + imageName)
+                        this.createClassificationJsonPayload(event, "attachment://" + imageName, hash)
                                 .toString())
-                .formPart(
-                        "files[0]",
-                        imageName,
-                        "image/png",
-                        this.imageBuffer.encode(MindustryImageRenderer.render(event.group()), "png"))
+                .formPart("files[0]", imageName, "image/png", this.imageBuffer.encode(image, "png"))
                 .build();
     }
 
-    private Jval createClassificationJsonPayload(final ClassificationEvent event, final String image) {
+    private Jval createClassificationJsonPayload(
+            final ClassificationEvent event, final String image, final String hash) {
         final var message = new StringBuilder();
         final var author = event.author();
         if (author == null) {
@@ -215,7 +223,7 @@ final class DiscordWebhook implements LifecycleListener {
                 "NoHorny has detected unsafe buildings",
                 message.toString(),
                 image,
-                "Request ID: `" + event.response().identifier() + "`");
+                "pHash: `" + hash + "`\nRequest ID: `" + event.response().identifier() + "`");
     }
 
     private Jval createComponentsJsonPayload(

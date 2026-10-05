@@ -234,3 +234,40 @@ Mean main loop cost per tick, out of the 16ms a 60 TPS server has:
 
 Need a helping hand? You can talk to the maintainers in [our discord server](https://discord.xpdustry.com)
 in the `#support` channel.
+
+### Perceptual hashes
+
+Images attached to Discord warnings include a `pHash` below the image. The plugin
+uses JImageHash's 64-bit `PerceptiveHash`; the versioned value has the form
+`phash-v1:0123456789abcdef`. Add it from the server console:
+
+```text
+add-phash phash-v1:0123456789abcdef
+add-phash optional comment with spaces phash-v1:0123456789abcdef
+```
+
+The blacklist is stored atomically in `phashes.json` inside the plugin's Mindustry
+configuration folder and loaded on startup. It stores only hashes and comments.
+An unreadable or malformed blacklist prevents plugin initialization. Blacklist
+matches delete the buildings regardless of the automatic moderation policy, before
+image encoding or remote classification. They produce no Discord attachment or
+debug image file; the match log contains only the pHash, threshold and comment.
+The blacklist also works when `nohorny-api-endpoint` is `null`.
+
+Configure these options with Mindustry's `config` console command:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `nohorny-phash-threshold` | `90` | Minimum blacklist similarity, percent (0–100). |
+| `nohorny-phash-dos-blacklist` | `false` | Add the attributed author's IP to Mindustry's DoS blacklist and disconnect matching players. |
+| `nohorny-phash-cache-threshold` | `98` | Minimum similarity for reusing a classification, percent (0–100). |
+| `nohorny-phash-cache-ttl` | `3600` | Cache lifetime in seconds; `0` disables it. |
+
+Similarity is `100 * (64 - Hamming distance) / 64`, inclusive of the threshold;
+a higher value requires a closer match. The separate in-memory cache holds up to
+4096 successful classifications and expires entries from their insertion time,
+without extending TTL on hits. Cache hits reuse the rating for moderation with
+the current image's author and buildings, skip the classification API, and suppress
+repeat Discord uploads. Errors are never cached. The persistent blacklist is
+checked before the cache; adding a hash clears cached classifications. Cache
+entries and Mindustry's DoS blacklist do not survive a server restart.

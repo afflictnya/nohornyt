@@ -56,6 +56,7 @@ final class DebugHelper implements LifecycleListener {
     private final IntMap<DebugTap> taps = new IntMap<>();
     private final NoHornyEventBus events;
     private final Path directory;
+    private final PerceptualHashes phashes;
     private final DisplayTracker displays;
     private final List<BuildingImageTracker<?, ?>> trackers;
 
@@ -63,7 +64,9 @@ final class DebugHelper implements LifecycleListener {
             final NoHornyEventBus events,
             final Path directory,
             final DisplayTracker displays,
-            final List<BuildingImageTracker<?, ?>> trackers) {
+            final List<BuildingImageTracker<?, ?>> trackers,
+            final PerceptualHashes phashes) {
+        this.phashes = phashes;
         this.events = events;
         this.directory = directory;
         this.displays = displays;
@@ -123,6 +126,11 @@ final class DebugHelper implements LifecycleListener {
             player.sendMessage(NoHornyPlugin.MESSAGE_PREFIX + "[scarlet]No group at (" + x + ", " + y + ")");
             return;
         }
+        final var image = MindustryImageRenderer.render(group);
+        if (this.phashes.blocked(this.phashes.hash(image))) {
+            this.phashes.remove(group, null);
+            return;
+        }
         this.highlight(player, group);
         final var prefix = DateTimeFormatter.ISO_LOCAL_DATE_TIME
                         .format(LocalDateTime.now(ZoneId.systemDefault()))
@@ -130,7 +138,7 @@ final class DebugHelper implements LifecycleListener {
                 + "_" + x + "_" + y;
         final var png = this.directory.resolve(prefix + ".png").toAbsolutePath();
         try (final var pngStream = Files.newOutputStream(png)) {
-            ImageIO.write(MindustryImageRenderer.render(group), "png", pngStream);
+            ImageIO.write(image, "png", pngStream);
         } catch (final IOException e) {
             player.sendMessage(NoHornyPlugin.MESSAGE_PREFIX + "[scarlet]Failed to create an image of the group at (" + x
                     + ", " + y + "), see console for stacktrace");

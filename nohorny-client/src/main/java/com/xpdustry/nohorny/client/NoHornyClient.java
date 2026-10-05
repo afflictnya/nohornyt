@@ -38,7 +38,10 @@ final class NoHornyClient implements LifecycleListener, GroupClassifier {
             HttpClient.newBuilder().executor(this.executor).build();
     private final NoHornyEventBus events;
 
-    public NoHornyClient(final NoHornyEventBus events) {
+    private final PerceptualHashes phashes;
+
+    public NoHornyClient(final NoHornyEventBus events, final PerceptualHashes phashes) {
+        this.phashes = phashes;
         this.events = events;
     }
 
@@ -119,9 +122,19 @@ final class NoHornyClient implements LifecycleListener, GroupClassifier {
     }
 
     private void classify(final VirtualBuilding.Group<? extends MindustryImage> group) throws Exception {
+        final var image = MindustryImageRenderer.render(group);
+        final var hash = this.phashes.hash(image);
+        final var author = computeAuthor(group);
+        if (this.phashes.reject(hash, group, author)) return;
+        final var cached = this.phashes.cached(hash);
+        if (cached != null) {
+            this.publish(group, author, cached, hash, true);
+            return;
+        }
+        if (NoHornySetting.API_ENDPOINT.get() == null) return;
         final var request = this.request("classify", Duration.ofSeconds(15))
                 .header("Content-Type", "image/jpeg")
-                .POST(this.imageBuffer.encode(MindustryImageRenderer.render(group), "jpg"))
+                .POST(this.imageBuffer.encode(image, "jpg"))
                 .build();
 
         final var response = this.http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
@@ -144,7 +157,8 @@ final class NoHornyClient implements LifecycleListener, GroupClassifier {
             return;
         }
 
-        final var author = computeAuthor(group);
+        if (this.phashes.reject(hash, group, author)) return;
+        this.phashes.remember(hash, classification);
         log.log(
                 classification.rating().isWorseOrEqualThan(Rating.WARN)
                         ? MiniLogger.Level.INFO
@@ -157,7 +171,22 @@ final class NoHornyClient implements LifecycleListener, GroupClassifier {
                 "%.2f".formatted(classification.confidence() * 100),
                 classification.classifier(),
                 classification.identifier());
-        Core.app.post(() -> this.events.publish(new ClassificationEvent(group, author, classification)));
+        this.publish(group, author, classification, hash, false);
+    }
+
+    private void publish(
+            final VirtualBuilding.Group<? extends MindustryImage> group,
+            final @Nullable MindustryAuthor author,
+            final ClassificationResponse response,
+            final String hash,
+            final boolean cached) {
+        Core.app.post(() -> {
+            if (this.phashes.blocked(hash)) {
+                this.phashes.remove(group, author);
+                return;
+            }
+            this.events.publish(new ClassificationEvent(group, author, response, hash, cached));
+        });
     }
 
     private HttpRequest.Builder request(final String path, final Duration timeout) {
